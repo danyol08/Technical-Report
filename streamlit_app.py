@@ -1,12 +1,12 @@
 import streamlit as st
 import pandas as pd
-import requests
 from authlib.integrations.requests_client import OAuth2Session
 from streamlit_gsheets import GSheetsConnection
 
 # --- Streamlit Config ---
 st.set_page_config(layout="wide")
 st.title("Technical Reports - 2025")
+st.markdown("🔑 Please login with Google to access your reports.")
 
 # --- Hide Streamlit Branding ---
 hide_st_style = """
@@ -24,7 +24,7 @@ st.markdown(hide_st_style, unsafe_allow_html=True)
 # --- Google OAuth Config ---
 CLIENT_ID = st.secrets["google"]["client_id"]
 CLIENT_SECRET = st.secrets["google"]["client_secret"]
-REDIRECT_URI = "https://technical-report.streamlit.app/"  # 🔑 with trailing slash
+REDIRECT_URI = "https://technical-report.streamlit.app"
 AUTHORIZATION_URL = "https://accounts.google.com/o/oauth2/auth"
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
@@ -57,45 +57,49 @@ WORK_TITLES_TECHNICAL = [
 
 WORK_STATUS = ["Done", "OnGoing"]
 
-# --- Step 1: Handle OAuth login ---
-if "user_email" not in st.session_state:
-    oauth = OAuth2Session(
-        CLIENT_ID,
-        CLIENT_SECRET,
-        scope="openid email profile",
-        redirect_uri=REDIRECT_URI,
-    )
+# --- Step 1: Handle Google OAuth ---
+oauth = OAuth2Session(
+    CLIENT_ID,
+    CLIENT_SECRET,
+    scope="openid email profile",
+    redirect_uri=REDIRECT_URI,
+)
 
-    # If redirected back with ?code=...
-    if "code" in st.query_params:
+# Check if already logged in
+if "user" not in st.session_state:
+
+    # If redirected back with ?code= in URL
+    query_params = st.experimental_get_query_params()
+    if "code" in query_params:
+        code = query_params["code"][0]
+
         try:
-            token = oauth.fetch_token(
-                TOKEN_URL,
-                code=st.query_params["code"]
-            )
-            resp = requests.get(USERINFO_URL, headers={"Authorization": f"Bearer {token['access_token']}"})
-            user_info = resp.json()
-            st.session_state.user_email = user_info["email"]
-            st.session_state.logged_in = True
-            st.success(f"✅ Logged in as {st.session_state.user_email}")
-            st.rerun()
+            token = oauth.fetch_token(TOKEN_URL, code=code)
+            userinfo = oauth.get(USERINFO_URL).json()
+
+            # Save user info in session state
+            st.session_state["user"] = userinfo
+            st.session_state["token"] = token
+
+            # ✅ Clear ?code=... from the URL so it doesn’t retry on refresh
+            st.experimental_set_query_params()
+
         except Exception as e:
-            st.error(f"OAuth login failed: {e}")
+            st.error(f"OAuth error: {e}")
             st.stop()
+
     else:
-        # Show login link
+        # Not logged in yet → show login button
         auth_url, _ = oauth.create_authorization_url(AUTHORIZATION_URL)
         st.markdown(f"[👉 Login with Google]({auth_url})")
         st.stop()
 
-# --- Step 2: Logout button ---
-if st.session_state.get("logged_in", False):
-    if st.button("🚪 Logout"):
-        st.session_state.clear()
-        st.rerun()
+# --- Step 2: Get logged-in user ---
+user = st.session_state["user"]
+email = user.get("email", "")
+st.success(f"✅ Logged in as {user.get('name','Unknown')} ({email})")
 
-# --- Step 3: Authorize user by email ---
-email = st.session_state.get("user_email")
+# --- Step 3: Map user to sheet ---
 selected_sheet = TEAM_SHEETS.get(email, None)
 if not selected_sheet:
     st.error("🚫 You are not authorized to access this system.")
