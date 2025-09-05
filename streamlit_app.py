@@ -4,28 +4,28 @@ import requests
 from authlib.integrations.requests_client import OAuth2Session
 from streamlit_gsheets import GSheetsConnection
 
-# Hide Streamlit footer, menu, and viewer badge
-hide_st_style = """
-    <style>
-    #MainMenu {visibility: hidden;}     /* Hides the hamburger menu */
-    footer {visibility: hidden;}        /* Hides "Made with Streamlit" footer */
-    .stDeployButton {display:none;}     /* Hides deploy button */
-    .viewerBadge_container__1QSob {display: none;}  /* Hides GitHub badge */
-    </style>
-"""
-st.markdown(hide_st_style, unsafe_allow_html=True)
-
-
-
 # --- Streamlit Config ---
 st.set_page_config(layout="wide")
 st.title("Technical Reports - 2025")
 st.markdown("🔑 Please login with Google to access your reports.")
 
+# --- Hide Streamlit Branding, GitHub, Fork, and Menu ---
+hide_st_style = """
+    <style>
+    #MainMenu {visibility: hidden;}        /* hamburger menu */
+    footer {visibility: hidden;}           /* footer */
+    .stDeployButton {display:none;}        /* deploy button */
+    .viewerBadge_container__1QSob {display: none;}  /* viewer badge */
+    .st-emotion-cache-12fmjuu {display: none;}      /* hosted by GitHub */
+    .stActionButton {display: none;}       /* fork button */
+    </style>
+"""
+st.markdown(hide_st_style, unsafe_allow_html=True)
+
 # --- Google OAuth Config ---
 CLIENT_ID = st.secrets["google"]["client_id"]
 CLIENT_SECRET = st.secrets["google"]["client_secret"]
-REDIRECT_URI = "https://technical-activity-report.streamlit.app"   
+REDIRECT_URI = "https://technical-activity-report.streamlit.app"
 AUTHORIZATION_URL = "https://accounts.google.com/o/oauth2/auth"
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
@@ -97,33 +97,13 @@ if "code" in st.query_params and "token" not in st.session_state:
 # --- Step 3: If logged in, fetch user info ---
 if "token" in st.session_state:
     token = st.session_state["token"]
-
-    try:
-        resp = requests.get(
-            USERINFO_URL,
-            headers={"Authorization": f"Bearer {token['access_token']}"}
-        )
-        resp.raise_for_status()
-        user_info = resp.json()
-    except Exception:
-        # Kapag nag-expire o invalid yung token → clear session + relogin
-        st.warning("⚠️ Your session has expired. Please login again.")
-        if "token" in st.session_state:
-            del st.session_state["token"]
-        st.stop()
+    resp = requests.get(USERINFO_URL, headers={"Authorization": f"Bearer {token['access_token']}"})
+    user_info = resp.json()
 
     email = user_info.get("email", "").lower()
     name = user_info.get("name", email)
 
-    # --- Header with Logout Button ---
-    col_a, col_b = st.columns([3, 1])
-    with col_a:
-        st.success(f"✅ Logged in as {name} ({email})")
-    with col_b:
-        if st.button("🚪 Logout"):
-            if "token" in st.session_state:
-                del st.session_state["token"]
-            st.experimental_rerun()
+    st.success(f"✅ Logged in as {name} ({email})")
 
     if email not in TEAM_SHEETS:
         st.error("🚫 You are not authorized to access this system.")
@@ -201,7 +181,7 @@ if "token" in st.session_state:
                 # --- Update sheet ---
                 conn.update(worksheet=selected_sheet, data=updated)
 
-                st.success(f"✅ Report saved to *{selected_sheet}*! (SQ {last_sq + 1})")
+                st.success(f"✅ Report saved to *{selected_sheet}*!})")
                 existing = updated
 
     # --- Right column: Excel-like view ---
@@ -209,6 +189,6 @@ if "token" in st.session_state:
         st.subheader(f"📊 Reports for {selected_sheet}")
         if existing is not None and not existing.empty:
             display_df = existing.reset_index(drop=True)
-            st.dataframe(display_df, width="stretch", height=700, hide_index=True)
+            st.dataframe(display_df, use_container_width=True, height=700, hide_index=True)
         else:
             st.info("No reports yet. Start adding using the form on the left.")
