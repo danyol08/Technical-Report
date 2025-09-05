@@ -5,7 +5,6 @@ from authlib.integrations.requests_client import OAuth2Session
 from streamlit_gsheets import GSheetsConnection
 
 st.markdown(
-    """
     <style>
     .css-1jc7ptx, .e1ewe7hr3, .viewerBadge_container__1QSob,
     .styles_viewerBadge__1yB5_, .viewerBadge_link__1S137,
@@ -13,7 +12,7 @@ st.markdown(
         display: none;
     }
     </style>
-    """,
+    ,
     unsafe_allow_html=True
 )
 
