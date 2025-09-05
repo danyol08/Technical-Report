@@ -4,19 +4,6 @@ import requests
 from authlib.integrations.requests_client import OAuth2Session
 from streamlit_gsheets import GSheetsConnection
 
-st.markdown(
-    <style>
-    .css-1jc7ptx, .e1ewe7hr3, .viewerBadge_container__1QSob,
-    .styles_viewerBadge__1yB5_, .viewerBadge_link__1S137,
-    .viewerBadge_text__1JaDK {
-        display: none;
-    }
-    </style>
-    ,
-    unsafe_allow_html=True
-)
-
-
 
 # --- Streamlit Config ---
 st.set_page_config(layout="wide")
@@ -182,7 +169,7 @@ if "token" in st.session_state:
                 # --- Update sheet ---
                 conn.update(worksheet=selected_sheet, data=updated)
 
-                st.success(f"✅ Report saved to *{selected_sheet}*! (SQ {last_sq + 1})")
+                st.success(f"✅ Report saved to *{selected_sheet}*!})")
                 existing = updated
 
     # --- Right column: Excel-like view ---
