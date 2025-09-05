@@ -10,17 +10,16 @@ st.title("Technical Reports - 2025")
 st.markdown("🔑 Please login with Google to access your reports.")
 
 # --- Hide Streamlit Branding, GitHub, Fork, and Menu ---
-hide_st_style = """
+st.markdown("""
     <style>
-    #MainMenu {visibility: hidden;}        /* hamburger menu */
-    footer {visibility: hidden;}           /* footer */
-    .stDeployButton {display:none;}        /* deploy button */
-    .viewerBadge_container__1QSob {display: none;}  /* viewer badge */
-    .st-emotion-cache-12fmjuu {display: none;}      /* hosted by GitHub */
-    .stActionButton {display: none;}       /* fork button */
+    #MainMenu {visibility: hidden;}        
+    footer {visibility: hidden;}           
+    .stDeployButton {display:none;}        
+    .viewerBadge_container__1QSob {display: none;}  
+    .st-emotion-cache-12fmjuu {display: none;}      
+    .stActionButton {display: none;}       
     </style>
-"""
-st.markdown(hide_st_style, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
 # --- Google OAuth Config ---
 CLIENT_ID = st.secrets["google"]["client_id"]
@@ -46,50 +45,33 @@ TEAM_SHEETS = {
 
 # --- Work Titles ---
 WORK_TITLES_SOFTWARE = [
-    "System Development",
-    "System On-site Meeting",
-    "System On-line Meeting",
-    "System Demo",
-    "Continuation of System Development",
-    "Technical Related Task",
-    "Not Related Task",
-    "On-Line Support",
+    "System Development","System On-site Meeting","System On-line Meeting","System Demo",
+    "Continuation of System Development","Technical Related Task","Not Related Task","On-Line Support"
 ]
-
 WORK_TITLES_TECHNICAL = [
-    "On-Site Support",
-    "In-House Repair",
-    "On-Site Repair",
-    "Diagnostic",
-    "Training Installation",
-    "Delivery Installation",
-    "Service Visit",
-    "PMS",
-    "Demo",
-    "Internal Inquiry",
+    "On-Site Support","In-House Repair","On-Site Repair","Diagnostic","Training Installation",
+    "Delivery Installation","Service Visit","PMS","Demo","Internal Inquiry"
 ]
-
 WORK_STATUS = ["Done", "OnGoing"]
 
 # --- Step 1: If not logged in, show login button ---
 if "token" not in st.session_state:
     oauth = OAuth2Session(
-        CLIENT_ID,
-        CLIENT_SECRET,
+        CLIENT_ID, CLIENT_SECRET,
         scope="openid email profile",
-        redirect_uri=REDIRECT_URI,
+        redirect_uri=REDIRECT_URI
     )
     auth_url, _ = oauth.create_authorization_url(AUTHORIZATION_URL)
     st.markdown(f"[👉 Login with Google]({auth_url})")
+    st.stop()
 
 # --- Step 2: Handle OAuth Redirect ---
 if "code" in st.query_params and "token" not in st.session_state:
     code = st.query_params["code"]
     oauth = OAuth2Session(
-        CLIENT_ID,
-        CLIENT_SECRET,
+        CLIENT_ID, CLIENT_SECRET,
         scope="openid email profile",
-        redirect_uri=REDIRECT_URI,
+        redirect_uri=REDIRECT_URI
     )
     token = oauth.fetch_token(TOKEN_URL, code=code)
     st.session_state["token"] = token
@@ -99,7 +81,6 @@ if "token" in st.session_state:
     token = st.session_state["token"]
     resp = requests.get(USERINFO_URL, headers={"Authorization": f"Bearer {token['access_token']}"})
     user_info = resp.json()
-
     email = user_info.get("email", "").lower()
     name = user_info.get("name", email)
 
@@ -117,29 +98,28 @@ if "token" in st.session_state:
     conn = st.connection("gsheets", type=GSheetsConnection)
 
     # --- Work Titles based on role ---
-    if selected_sheet in ["Daniel", "Ron"]:
-        WORK_TITLES = WORK_TITLES_SOFTWARE
-    else:
-        WORK_TITLES = WORK_TITLES_TECHNICAL
+    WORK_TITLES = WORK_TITLES_SOFTWARE if selected_sheet in ["Daniel", "Ron"] else WORK_TITLES_TECHNICAL
 
-    # --- Try to read existing data ---
-    try:
-        existing = conn.read(
-            worksheet=selected_sheet,
-            usecols=list(range(7)),
-            header=0,
-            ttl=5
-        )
-    except Exception:
-        existing = pd.DataFrame(columns=["SQ","Date","Work Title","Sales Name","Work Status","Comments","Cancelled Event"])
+    # --- Store existing data in session_state ---
+    if "existing" not in st.session_state:
+        try:
+            st.session_state["existing"] = conn.read(
+                worksheet=selected_sheet,
+                usecols=list(range(7)),
+                header=0,
+                ttl=5
+            )
+        except Exception:
+            st.session_state["existing"] = pd.DataFrame(columns=["SQ","Date","Work Title","Sales Name","Work Status","Comments","Cancelled Event"])
+
+    existing = st.session_state["existing"]
 
     # --- Layout: 2 columns ---
-    col1, col2 = st.columns([1, 3])
+    col1, col2 = st.columns([1,3])
 
     # --- Left column: Input Form ---
     with col1:
         st.subheader("📝 Input Report")
-
         with st.form(key="Technical_Report", clear_on_submit=True):
             date = st.date_input("Date*", value=pd.to_datetime("today"))
             work_title = st.selectbox("Work Title*", options=WORK_TITLES, index=None)
@@ -149,22 +129,13 @@ if "token" in st.session_state:
             cancelled_event = st.text_area("Cancelled Event", height=100)
 
             submit = st.form_submit_button("Submit Report")
-
             if submit:
                 if not work_title:
                     st.warning("⚠️ Please select a Work Title.")
                     st.stop()
 
-                # --- Get last SQ ---
-                if existing is None or existing.empty:
-                    last_sq = 0
-                else:
-                    try:
-                        last_sq = int(existing["SQ"].max())
-                    except Exception:
-                        last_sq = 0
+                last_sq = int(existing["SQ"].max()) if not existing.empty else 0
 
-                # --- New row ---
                 new_row = pd.DataFrame([{
                     "SQ": last_sq + 1,
                     "Date": date,
@@ -175,20 +146,17 @@ if "token" in st.session_state:
                     "Cancelled Event": cancelled_event,
                 }])
 
-                # --- Append row ---
                 updated = pd.concat([existing, new_row], ignore_index=True)
-
-                # --- Update sheet ---
                 conn.update(worksheet=selected_sheet, data=updated)
 
-                st.success(f"✅ Report saved to *{selected_sheet}*!})")
-                existing = updated
+                st.session_state["existing"] = updated
+                st.success(f"✅ Report saved to *{selected_sheet}*! (SQ {last_sq + 1})")
 
     # --- Right column: Excel-like view ---
     with col2:
         st.subheader(f"📊 Reports for {selected_sheet}")
-        if existing is not None and not existing.empty:
-            display_df = existing.reset_index(drop=True)
-            st.dataframe(display_df, use_container_width=True, height=700, hide_index=True)
+        display_df = st.session_state["existing"].reset_index(drop=True)
+        if not display_df.empty:
+            st.dataframe(display_df, width='stretch', height=700, hide_index=True)
         else:
             st.info("No reports yet. Start adding using the form on the left.")
