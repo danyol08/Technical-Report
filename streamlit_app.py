@@ -34,14 +34,14 @@ USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
 TEAM_SHEETS = {
     "daniel@barcotech.net": "Daniel",
     "ronald@barcotech.net": "Ron",
-    "ariel@gmail.com": "Ariel",
+    "ariel@barcotech.net": "Ariel",
     "marlouie@barcotech.net": "Louie",
-    "bovi@gmail.com": "Bovi",
+    "william@barcotech.net": "Bovi",
     "nathan@gmail.com": "Nathan",
     "cj@gmail.com": "Cj",
     "eduardo@gmail.com": "Eduardo",
     "camelo@gmail.com": "Camelo",
-    "rye@gmail.com": "Rye",
+    "rye_tabil@barcotech.net": "Rye",
 }
 
 # --- Work Titles ---
