@@ -37,10 +37,10 @@ TEAM_SHEETS = {
     "ariel@barcotech.net": "Ariel",
     "marlouie@barcotech.net": "Louie",
     "william@barcotech.net": "Bovi",
-    "nathan@gmail.com": "Nathan",
-    "cj@gmail.com": "Cj",
-    "eduardo@gmail.com": "Eduardo",
-    "camelo@gmail.com": "Camelo",
+    "nathaniel@barcotech.net": "Nathan",
+    "cjuztin@barcotech.net": "Cj",
+    "eduardo@barcotech.net": "Eduardo",
+    "camelo@barcotech.net": "Camelo",
     "rye_tabil@barcotech.net": "Rye",
 }
 
