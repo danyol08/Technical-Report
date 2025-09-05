@@ -179,3 +179,9 @@ if "token" in st.session_state:
             st.dataframe(display_df, use_container_width=True, height=700, hide_index=True)
         else:
             st.info("No reports yet. Start adding using the form on the left.")
+# Add custom CSS to hide the GitHub icon
+hide_github_icon = """ 
+#GithubIcon {   visibility: hidden;
+} 
+"""
+st.markdown(hide_github_icon, unsafe_allow_html=True)
