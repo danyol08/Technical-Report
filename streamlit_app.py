@@ -1,12 +1,12 @@
 import streamlit as st
 import pandas as pd
+import requests
 from authlib.integrations.requests_client import OAuth2Session
 from streamlit_gsheets import GSheetsConnection
 
 # --- Streamlit Config ---
 st.set_page_config(layout="wide")
 st.title("Technical Reports - 2025")
-st.markdown("🔑 Please login with Google to access your reports.")
 
 # --- Hide Streamlit Branding ---
 hide_st_style = """
@@ -24,7 +24,7 @@ st.markdown(hide_st_style, unsafe_allow_html=True)
 # --- Google OAuth Config ---
 CLIENT_ID = st.secrets["google"]["client_id"]
 CLIENT_SECRET = st.secrets["google"]["client_secret"]
-REDIRECT_URI = "https://technical-activity-report.streamlit.app/"   # ✅ safer with trailing slash
+REDIRECT_URI = "https://technical-activity-report.streamlit.app/"  # 🔑 with trailing slash
 AUTHORIZATION_URL = "https://accounts.google.com/o/oauth2/auth"
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
@@ -57,45 +57,55 @@ WORK_TITLES_TECHNICAL = [
 
 WORK_STATUS = ["Done", "OnGoing"]
 
-# --- Session State Init ---
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-if "email" not in st.session_state:
-    st.session_state.email = None
-
-# --- Logout Button ---
-if st.session_state.logged_in:
-    if st.button("🚪 Logout"):
-        st.session_state.clear()
-        st.success("You have been logged out.")
-        st.stop()
-
-# --- Step 1: Require login if not logged in ---
-if not st.session_state.logged_in:
+# --- Step 1: Handle OAuth login ---
+if "user_email" not in st.session_state:
     oauth = OAuth2Session(
         CLIENT_ID,
         CLIENT_SECRET,
         scope="openid email profile",
         redirect_uri=REDIRECT_URI,
     )
-    auth_url, _ = oauth.create_authorization_url(AUTHORIZATION_URL)
-    st.markdown(f"[👉 Login with Google]({auth_url})")
-    st.stop()
 
-# --- Step 2: The rest of your app (only after login) ---
+    # If redirected back with ?code=...
+    if "code" in st.query_params:
+        try:
+            token = oauth.fetch_token(
+                TOKEN_URL,
+                code=st.query_params["code"]
+            )
+            resp = requests.get(USERINFO_URL, headers={"Authorization": f"Bearer {token['access_token']}"})
+            user_info = resp.json()
+            st.session_state.user_email = user_info["email"]
+            st.session_state.logged_in = True
+            st.success(f"✅ Logged in as {st.session_state.user_email}")
+            st.rerun()
+        except Exception as e:
+            st.error(f"OAuth login failed: {e}")
+            st.stop()
+    else:
+        # Show login link
+        auth_url, _ = oauth.create_authorization_url(AUTHORIZATION_URL)
+        st.markdown(f"[👉 Login with Google]({auth_url})")
+        st.stop()
 
-# --- Connect to Google Sheets ---
-conn = st.connection("gsheets", type=GSheetsConnection)
+# --- Step 2: Logout button ---
+if st.session_state.get("logged_in", False):
+    if st.button("🚪 Logout"):
+        st.session_state.clear()
+        st.rerun()
 
-# --- Map Gmail to Sheet ---
-email = st.session_state.email or "replace_with_logged_in_email@domain.com"  # placeholder until real login flow
+# --- Step 3: Authorize user by email ---
+email = st.session_state.get("user_email")
 selected_sheet = TEAM_SHEETS.get(email, None)
 if not selected_sheet:
     st.error("🚫 You are not authorized to access this system.")
     st.stop()
 
-# --- Work Titles ---
+# --- Work Titles based on role ---
 WORK_TITLES = WORK_TITLES_SOFTWARE if selected_sheet in ["Daniel", "Ron"] else WORK_TITLES_TECHNICAL
+
+# --- Connect to Google Sheets ---
+conn = st.connection("gsheets", type=GSheetsConnection)
 
 # --- Try to read existing data ---
 try:
@@ -146,7 +156,7 @@ with col1:
 
             try:
                 conn.update(worksheet=selected_sheet, data=updated)
-                st.success(f"✅ Report saved to *{selected_sheet}*! ✅")
+                st.success(f"✅ Report saved to *{selected_sheet}*!")
                 existing = updated
             except Exception as e:
                 st.error(f"Failed to update sheet: {e}")
