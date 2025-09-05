@@ -59,38 +59,34 @@ WORK_TITLES_TECHNICAL = [
 
 WORK_STATUS = ["Done", "OnGoing"]
 
-# --- Step 1: Handle OAuth Login ---
-if "token" not in st.session_state:
-    if "code" in st.query_params:
-        code = st.query_params["code"]
-        oauth = OAuth2Session(
-            CLIENT_ID,
-            CLIENT_SECRET,
-            scope="openid email profile",
-            redirect_uri=REDIRECT_URI,
-        )
-        try:
-            token = oauth.fetch_token(TOKEN_URL, code=code)
-            st.session_state["token"] = token
-            # Clear the 'code' from the URL to avoid re-fetch on refresh
-            st.experimental_set_query_params()
-            st.experimental_rerun()
-        except Exception as e:
-            st.error(f"OAuth token fetch failed: {e}")
-            st.stop()
-    else:
-        oauth = OAuth2Session(
-            CLIENT_ID,
-            CLIENT_SECRET,
-            scope="openid email profile",
-            redirect_uri=REDIRECT_URI,
-        )
-        auth_url, _ = oauth.create_authorization_url(AUTHORIZATION_URL)
-        st.markdown(f"[👉 Login with Google]({auth_url})")
-        st.stop()
+# --- OAuth: Always ask login ---
+if "code" not in st.query_params:
+    oauth = OAuth2Session(
+        CLIENT_ID,
+        CLIENT_SECRET,
+        scope="openid email profile",
+        redirect_uri=REDIRECT_URI,
+    )
+    auth_url, _ = oauth.create_authorization_url(AUTHORIZATION_URL)
+    st.markdown(f"[👉 Login with Google]({auth_url})")
+    st.stop()
 
-# --- Step 2: Logged in, fetch user info ---
-token = st.session_state["token"]
+# --- Handle returned code ---
+code = st.query_params["code"]
+oauth = OAuth2Session(
+    CLIENT_ID,
+    CLIENT_SECRET,
+    scope="openid email profile",
+    redirect_uri=REDIRECT_URI,
+)
+
+try:
+    token = oauth.fetch_token(TOKEN_URL, code=code)
+except Exception as e:
+    st.error(f"OAuth token fetch failed: {e}")
+    st.stop()
+
+# --- Fetch user info ---
 try:
     resp = requests.get(USERINFO_URL, headers={"Authorization": f"Bearer {token['access_token']}"})
     resp.raise_for_status()
@@ -98,6 +94,9 @@ try:
 except Exception as e:
     st.error(f"Failed to fetch user info: {e}")
     st.stop()
+
+# Clear code to avoid reuse on refresh
+st.experimental_set_query_params()
 
 email = user_info.get("email", "").lower()
 name = user_info.get("name", email)
