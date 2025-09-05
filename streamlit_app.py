@@ -4,6 +4,18 @@ import requests
 from authlib.integrations.requests_client import OAuth2Session
 from streamlit_gsheets import GSheetsConnection
 
+# Hide Streamlit footer, menu, and viewer badge
+hide_st_style = """
+    <style>
+    #MainMenu {visibility: hidden;}     /* Hides the hamburger menu */
+    footer {visibility: hidden;}        /* Hides "Made with Streamlit" footer */
+    .stDeployButton {display:none;}     /* Hides deploy button */
+    .viewerBadge_container__1QSob {display: none;}  /* Hides GitHub badge */
+    </style>
+"""
+st.markdown(hide_st_style, unsafe_allow_html=True)
+
+
 
 # --- Streamlit Config ---
 st.set_page_config(layout="wide")
