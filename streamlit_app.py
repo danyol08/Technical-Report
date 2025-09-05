@@ -12,7 +12,7 @@ st.markdown("🔑 Please login with Google to access your reports.")
 # --- Google OAuth Config ---
 CLIENT_ID = st.secrets["google"]["client_id"]
 CLIENT_SECRET = st.secrets["google"]["client_secret"]
-REDIRECT_URI = "http://localhost:8501"   # Change to deployed URL
+REDIRECT_URI = "https://technical-activity-report.streamlit.app"   
 AUTHORIZATION_URL = "https://accounts.google.com/o/oauth2/auth"
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
