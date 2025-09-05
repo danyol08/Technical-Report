@@ -7,6 +7,17 @@ from streamlit_gsheets import GSheetsConnection
 
 # --- Streamlit Config ---
 st.set_page_config(layout="wide")
+
+# 👉 Custom CSS to hide Streamlit badges/footer
+HIDE_BADGES = """
+.css-1jc7ptx, .e1ewe7hr3, .viewerBadge_container__1QSob,
+.styles_viewerBadge__1yB5_, .viewerBadge_link__1S137,
+.viewerBadge_text__1JaDK, footer {
+    display: none !important;
+}
+"""
+st.markdown(f"<style>{HIDE_BADGES}</style>", unsafe_allow_html=True)
+
 st.title("Technical Reports - 2025")
 st.markdown("🔑 Please login with Google to access your reports.")
 
@@ -169,7 +180,7 @@ if "token" in st.session_state:
                 # --- Update sheet ---
                 conn.update(worksheet=selected_sheet, data=updated)
 
-                st.success(f"✅ Report saved to *{selected_sheet}*!})")
+                st.success(f"✅ Report saved to *{selected_sheet}*! (SQ {last_sq + 1})")
                 existing = updated
 
     # --- Right column: Excel-like view ---
@@ -180,4 +191,3 @@ if "token" in st.session_state:
             st.dataframe(display_df, use_container_width=True, height=700, hide_index=True)
         else:
             st.info("No reports yet. Start adding using the form on the left.")
-
