@@ -24,7 +24,7 @@ st.markdown(hide_st_style, unsafe_allow_html=True)
 # --- Google OAuth Config ---
 CLIENT_ID = st.secrets["google"]["client_id"]
 CLIENT_SECRET = st.secrets["google"]["client_secret"]
-REDIRECT_URI = "https://technical-activity-report.streamlit.app/"  # 🔑 with trailing slash
+REDIRECT_URI = "https://technical-report.streamlit.app/"  # 🔑 with trailing slash
 AUTHORIZATION_URL = "https://accounts.google.com/o/oauth2/auth"
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
