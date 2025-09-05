@@ -20,7 +20,7 @@ USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
 # --- Gmail to Sheet Mapping ---
 TEAM_SHEETS = {
     "daniel@barcotech.net": "Daniel",
-    "ron@gmail.com": "Ron",
+    "ronald@barcotech.net": "Ron",
     "ariel@gmail.com": "Ariel",
     "louie@gmail.com": "Louie",
     "bovi@gmail.com": "Bovi",
