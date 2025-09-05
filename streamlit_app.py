@@ -57,25 +57,46 @@ WORK_TITLES_TECHNICAL = [
 
 WORK_STATUS = ["Done", "OnGoing"]
 
-# --- Step 1: Always require login on refresh ---
+# --- Step 1: Handle Google OAuth ---
 oauth = OAuth2Session(
     CLIENT_ID,
     CLIENT_SECRET,
     scope="openid email profile",
     redirect_uri=REDIRECT_URI,
 )
-auth_url, _ = oauth.create_authorization_url(AUTHORIZATION_URL)
-st.markdown(f"[👉 Login with Google]({auth_url})")
-st.stop()  # Stop here; refresh will force login again
 
-# --- Step 2: The rest of your app (sheet, form, view) ---
-# This part will only run after the user logs in through the OAuth link
+# Check if already logged in
+if "user" not in st.session_state:
 
-# --- Connect to Google Sheets ---
-conn = st.connection("gsheets", type=GSheetsConnection)
+    # If redirected back with ?code= in URL
+    query_params = st.experimental_get_query_params()
+    if "code" in query_params:
+        code = query_params["code"][0]
 
-# --- Example: Map Gmail to Sheet (replace with actual email after login) ---
-email = "replace_with_logged_in_email@domain.com"  # Placeholder
+        try:
+            token = oauth.fetch_token(TOKEN_URL, code=code)
+            userinfo = oauth.get(USERINFO_URL).json()
+
+            # Save user info in session state
+            st.session_state["user"] = userinfo
+            st.session_state["token"] = token
+
+        except Exception as e:
+            st.error(f"OAuth error: {e}")
+            st.stop()
+
+    else:
+        # Not logged in yet → show login button
+        auth_url, _ = oauth.create_authorization_url(AUTHORIZATION_URL)
+        st.markdown(f"[👉 Login with Google]({auth_url})")
+        st.stop()
+
+# --- Step 2: Get logged-in user ---
+user = st.session_state["user"]
+email = user.get("email", "")
+st.success(f"✅ Logged in as {user.get('name','Unknown')} ({email})")
+
+# --- Step 3: Map user to sheet ---
 selected_sheet = TEAM_SHEETS.get(email, None)
 if not selected_sheet:
     st.error("🚫 You are not authorized to access this system.")
@@ -83,6 +104,9 @@ if not selected_sheet:
 
 # --- Work Titles based on role ---
 WORK_TITLES = WORK_TITLES_SOFTWARE if selected_sheet in ["Daniel", "Ron"] else WORK_TITLES_TECHNICAL
+
+# --- Connect to Google Sheets ---
+conn = st.connection("gsheets", type=GSheetsConnection)
 
 # --- Try to read existing data ---
 try:
