@@ -22,7 +22,7 @@ TEAM_SHEETS = {
     "daniel@barcotech.net": "Daniel",
     "ronald@barcotech.net": "Ron",
     "ariel@gmail.com": "Ariel",
-    "louie@gmail.com": "Louie",
+    "marlouie@barcotech.net": "Louie",
     "bovi@gmail.com": "Bovi",
     "nathan@gmail.com": "Nathan",
     "cj@gmail.com": "Cj",
