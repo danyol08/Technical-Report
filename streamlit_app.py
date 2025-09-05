@@ -24,7 +24,7 @@ st.markdown(hide_st_style, unsafe_allow_html=True)
 # --- Google OAuth Config ---
 CLIENT_ID = st.secrets["google"]["client_id"]
 CLIENT_SECRET = st.secrets["google"]["client_secret"]
-REDIRECT_URI = "https://technical-activity-report.streamlit.app/"   # ✅ safer with trailing slash
+REDIRECT_URI = "https://technical-activity-report.streamlit.app"
 AUTHORIZATION_URL = "https://accounts.google.com/o/oauth2/auth"
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
@@ -57,45 +57,59 @@ WORK_TITLES_TECHNICAL = [
 
 WORK_STATUS = ["Done", "OnGoing"]
 
-# --- Session State Init ---
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-if "email" not in st.session_state:
-    st.session_state.email = None
+# --- Step 1: Handle Google OAuth ---
+oauth = OAuth2Session(
+    CLIENT_ID,
+    CLIENT_SECRET,
+    scope="openid email profile",
+    redirect_uri=REDIRECT_URI,
+)
 
-# --- Logout Button ---
-if st.session_state.logged_in:
-    if st.button("🚪 Logout"):
-        st.session_state.clear()
-        st.success("You have been logged out.")
+# Check if already logged in
+if "user" not in st.session_state:
+
+    # If redirected back with ?code= in URL
+    query_params = st.experimental_get_query_params()
+    if "code" in query_params:
+        code = query_params["code"][0]
+
+        try:
+            token = oauth.fetch_token(TOKEN_URL, code=code)
+            userinfo = oauth.get(USERINFO_URL).json()
+
+            # Save user info in session state
+            st.session_state["user"] = userinfo
+            st.session_state["token"] = token
+
+            # ✅ Clear ?code=... from the URL so it doesn’t retry on refresh
+            st.experimental_set_query_params()
+
+        except Exception as e:
+            st.error(f"OAuth error: {e}")
+            st.stop()
+
+    else:
+        # Not logged in yet → show login button
+        auth_url, _ = oauth.create_authorization_url(AUTHORIZATION_URL)
+        st.markdown(f"[👉 Login with Google]({auth_url})")
         st.stop()
 
-# --- Step 1: Require login if not logged in ---
-if not st.session_state.logged_in:
-    oauth = OAuth2Session(
-        CLIENT_ID,
-        CLIENT_SECRET,
-        scope="openid email profile",
-        redirect_uri=REDIRECT_URI,
-    )
-    auth_url, _ = oauth.create_authorization_url(AUTHORIZATION_URL)
-    st.markdown(f"[👉 Login with Google]({auth_url})")
-    st.stop()
+# --- Step 2: Get logged-in user ---
+user = st.session_state["user"]
+email = user.get("email", "")
+st.success(f"✅ Logged in as {user.get('name','Unknown')} ({email})")
 
-# --- Step 2: The rest of your app (only after login) ---
-
-# --- Connect to Google Sheets ---
-conn = st.connection("gsheets", type=GSheetsConnection)
-
-# --- Map Gmail to Sheet ---
-email = st.session_state.email or "replace_with_logged_in_email@domain.com"  # placeholder until real login flow
+# --- Step 3: Map user to sheet ---
 selected_sheet = TEAM_SHEETS.get(email, None)
 if not selected_sheet:
     st.error("🚫 You are not authorized to access this system.")
     st.stop()
 
-# --- Work Titles ---
+# --- Work Titles based on role ---
 WORK_TITLES = WORK_TITLES_SOFTWARE if selected_sheet in ["Daniel", "Ron"] else WORK_TITLES_TECHNICAL
+
+# --- Connect to Google Sheets ---
+conn = st.connection("gsheets", type=GSheetsConnection)
 
 # --- Try to read existing data ---
 try:
@@ -146,7 +160,7 @@ with col1:
 
             try:
                 conn.update(worksheet=selected_sheet, data=updated)
-                st.success(f"✅ Report saved to *{selected_sheet}*! ✅")
+                st.success(f"✅ Report saved to *{selected_sheet}*!")
                 existing = updated
             except Exception as e:
                 st.error(f"Failed to update sheet: {e}")
