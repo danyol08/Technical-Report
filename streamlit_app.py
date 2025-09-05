@@ -81,6 +81,9 @@ if "user" not in st.session_state:
             st.session_state["user"] = userinfo
             st.session_state["token"] = token
 
+            # ✅ Clear ?code=... from the URL so it doesn’t retry on refresh
+            st.experimental_set_query_params()
+
         except Exception as e:
             st.error(f"OAuth error: {e}")
             st.stop()
