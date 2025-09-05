@@ -59,47 +59,46 @@ WORK_TITLES_TECHNICAL = [
 
 WORK_STATUS = ["Done", "OnGoing"]
 
-# --- OAuth: Always ask login ---
-if "code" not in st.query_params:
-    oauth = OAuth2Session(
-        CLIENT_ID,
-        CLIENT_SECRET,
-        scope="openid email profile",
-        redirect_uri=REDIRECT_URI,
-    )
-    auth_url, _ = oauth.create_authorization_url(AUTHORIZATION_URL)
-    st.markdown(f"[👉 Login with Google]({auth_url})")
-    st.stop()
+# --- Step 1: OAuth Login Handling ---
+# If we already have user_info, skip login
+if "user_info" not in st.session_state:
+    # If code is in URL, fetch token and user info
+    if "code" in st.query_params:
+        code = st.query_params["code"]
+        oauth = OAuth2Session(
+            CLIENT_ID,
+            CLIENT_SECRET,
+            scope="openid email profile",
+            redirect_uri=REDIRECT_URI,
+        )
+        try:
+            token = oauth.fetch_token(TOKEN_URL, code=code)
+            resp = requests.get(USERINFO_URL, headers={"Authorization": f"Bearer {token['access_token']}"})
+            resp.raise_for_status()
+            st.session_state["user_info"] = resp.json()
+            # Clear code from URL to prevent reuse
+            st.experimental_set_query_params()
+            st.experimental_rerun()
+        except Exception as e:
+            st.error(f"OAuth login failed: {e}")
+            st.stop()
+    else:
+        # No code yet → show login button
+        oauth = OAuth2Session(
+            CLIENT_ID,
+            CLIENT_SECRET,
+            scope="openid email profile",
+            redirect_uri=REDIRECT_URI,
+        )
+        auth_url, _ = oauth.create_authorization_url(AUTHORIZATION_URL)
+        st.markdown(f"[👉 Login with Google]({auth_url})")
+        st.stop()
 
-# --- Handle returned code ---
-code = st.query_params["code"]
-oauth = OAuth2Session(
-    CLIENT_ID,
-    CLIENT_SECRET,
-    scope="openid email profile",
-    redirect_uri=REDIRECT_URI,
-)
-
-try:
-    token = oauth.fetch_token(TOKEN_URL, code=code)
-except Exception as e:
-    st.error(f"OAuth token fetch failed: {e}")
-    st.stop()
-
-# --- Fetch user info ---
-try:
-    resp = requests.get(USERINFO_URL, headers={"Authorization": f"Bearer {token['access_token']}"})
-    resp.raise_for_status()
-    user_info = resp.json()
-except Exception as e:
-    st.error(f"Failed to fetch user info: {e}")
-    st.stop()
-
-# Clear code to avoid reuse on refresh
-st.experimental_set_query_params()
-
+# --- Step 2: Logged in, fetch user info ---
+user_info = st.session_state["user_info"]
 email = user_info.get("email", "").lower()
 name = user_info.get("name", email)
+
 st.success(f"✅ Logged in as {name} ({email})")
 
 if email not in TEAM_SHEETS:
@@ -116,7 +115,7 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 # --- Work Titles based on role ---
 WORK_TITLES = WORK_TITLES_SOFTWARE if selected_sheet in ["Daniel", "Ron"] else WORK_TITLES_TECHNICAL
 
-# --- Try to read existing data safely ---
+# --- Read existing data ---
 try:
     existing = conn.read(
         worksheet=selected_sheet,
