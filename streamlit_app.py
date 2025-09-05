@@ -79,7 +79,8 @@ if "token" not in st.session_state:
         scope="openid email profile",
         redirect_uri=REDIRECT_URI,
     )
-    auth_url, _ = oauth.create_authorization_url(AUTHORIZATION_URL)
+    # Add prompt=consent to reduce invalid_grant issues
+    auth_url, _ = oauth.create_authorization_url(AUTHORIZATION_URL, prompt="consent")
     st.markdown(f"[👉 Login with Google]({auth_url})")
 
 # --- Step 2: Handle OAuth Redirect ---
@@ -181,7 +182,7 @@ if "token" in st.session_state:
                 # --- Update sheet ---
                 conn.update(worksheet=selected_sheet, data=updated)
 
-                st.success(f"✅ Report saved to *{selected_sheet}*!})")
+                st.success(f"✅ Report saved to *{selected_sheet}*!")
                 existing = updated
 
     # --- Right column: Excel-like view ---
