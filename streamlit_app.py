@@ -4,28 +4,16 @@ import requests
 from authlib.integrations.requests_client import OAuth2Session
 from streamlit_gsheets import GSheetsConnection
 
+
 # --- Streamlit Config ---
 st.set_page_config(layout="wide")
 st.title("Technical Reports - 2025")
 st.markdown("🔑 Please login with Google to access your reports.")
 
-# --- Hide Streamlit Branding, GitHub, Fork, and Menu ---
-hide_st_style = """
-    <style>
-    #MainMenu {visibility: hidden;}        /* hamburger menu */
-    footer {visibility: hidden;}           /* footer */
-    .stDeployButton {display:none;}        /* deploy button */
-    .viewerBadge_container__1QSob {display: none;}  /* viewer badge */
-    .st-emotion-cache-12fmjuu {display: none;}      /* hosted by GitHub */
-    .stActionButton {display: none;}       /* fork button */
-    </style>
-"""
-st.markdown(hide_st_style, unsafe_allow_html=True)
-
 # --- Google OAuth Config ---
 CLIENT_ID = st.secrets["google"]["client_id"]
 CLIENT_SECRET = st.secrets["google"]["client_secret"]
-REDIRECT_URI = "https://technical-activity-report.streamlit.app"
+REDIRECT_URI = "https://technical-activity-report.streamlit.app"   
 AUTHORIZATION_URL = "https://accounts.google.com/o/oauth2/auth"
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
@@ -93,17 +81,36 @@ if "code" in st.query_params and "token" not in st.session_state:
     )
     token = oauth.fetch_token(TOKEN_URL, code=code)
     st.session_state["token"] = token
+    st.rerun()
 
 # --- Step 3: If logged in, fetch user info ---
 if "token" in st.session_state:
-    token = st.session_state["token"]
-    resp = requests.get(USERINFO_URL, headers={"Authorization": f"Bearer {token['access_token']}"})
-    user_info = resp.json()
+    try:
+        token = st.session_state["token"]
+        resp = requests.get(USERINFO_URL, headers={"Authorization": f"Bearer {token['access_token']}"})
+        user_info = resp.json()
+
+        # --- Kung may error, force logout ---
+        if "error" in user_info:
+            st.warning("⚠️ Session expired. Please login again.")
+            del st.session_state["token"]
+            st.stop()
+
+    except Exception:
+        st.warning("⚠️ Invalid session. Please login again.")
+        if "token" in st.session_state:
+            del st.session_state["token"]
+        st.stop()
 
     email = user_info.get("email", "").lower()
     name = user_info.get("name", email)
 
     st.success(f"✅ Logged in as {name} ({email})")
+
+    # --- Logout button ---
+    if st.button("🚪 Logout"):
+        del st.session_state["token"]
+        st.rerun()
 
     if email not in TEAM_SHEETS:
         st.error("🚫 You are not authorized to access this system.")
@@ -181,7 +188,7 @@ if "token" in st.session_state:
                 # --- Update sheet ---
                 conn.update(worksheet=selected_sheet, data=updated)
 
-                st.success(f"✅ Report saved to *{selected_sheet}*!})")
+                st.success(f"✅ Report saved to *{selected_sheet}*!")
                 existing = updated
 
     # --- Right column: Excel-like view ---
