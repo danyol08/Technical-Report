@@ -88,11 +88,7 @@ if "user_email" not in st.session_state:
         st.markdown(f"[👉 Login with Google]({auth_url})")
         st.stop()
 
-# --- Step 2: Logout button ---
-if st.session_state.get("logged_in", False):
-    if st.button("🚪 Logout"):
-        st.session_state.clear()
-        st.rerun()
+# --- Step 2: (Logout button removed) ---
 
 # --- Step 3: Authorize user by email ---
 email = st.session_state.get("user_email")
