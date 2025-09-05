@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import requests
 from authlib.integrations.requests_client import OAuth2Session
 from streamlit_gsheets import GSheetsConnection
 
@@ -44,7 +43,6 @@ TEAM_SHEETS = {
     "rye_tabil@barcotech.net": "Rye",
 }
 
-# --- Work Titles ---
 WORK_TITLES_SOFTWARE = [
     "System Development","System On-site Meeting","System On-line Meeting",
     "System Demo","Continuation of System Development","Technical Related Task",
@@ -59,63 +57,34 @@ WORK_TITLES_TECHNICAL = [
 
 WORK_STATUS = ["Done", "OnGoing"]
 
-# --- Step 1: OAuth Login Handling ---
-# If we already have user_info, skip login
-if "user_info" not in st.session_state:
-    # If code is in URL, fetch token and user info
-    if "code" in st.query_params:
-        code = st.query_params["code"]
-        oauth = OAuth2Session(
-            CLIENT_ID,
-            CLIENT_SECRET,
-            scope="openid email profile",
-            redirect_uri=REDIRECT_URI,
-        )
-        try:
-            token = oauth.fetch_token(TOKEN_URL, code=code)
-            resp = requests.get(USERINFO_URL, headers={"Authorization": f"Bearer {token['access_token']}"})
-            resp.raise_for_status()
-            st.session_state["user_info"] = resp.json()
-            # Clear code from URL to prevent reuse
-            st.experimental_set_query_params()
-            st.experimental_rerun()
-        except Exception as e:
-            st.error(f"OAuth login failed: {e}")
-            st.stop()
-    else:
-        # No code yet → show login button
-        oauth = OAuth2Session(
-            CLIENT_ID,
-            CLIENT_SECRET,
-            scope="openid email profile",
-            redirect_uri=REDIRECT_URI,
-        )
-        auth_url, _ = oauth.create_authorization_url(AUTHORIZATION_URL)
-        st.markdown(f"[👉 Login with Google]({auth_url})")
-        st.stop()
+# --- Step 1: Always require login on refresh ---
+oauth = OAuth2Session(
+    CLIENT_ID,
+    CLIENT_SECRET,
+    scope="openid email profile",
+    redirect_uri=REDIRECT_URI,
+)
+auth_url, _ = oauth.create_authorization_url(AUTHORIZATION_URL)
+st.markdown(f"[👉 Login with Google]({auth_url})")
+st.stop()  # Stop here; refresh will force login again
 
-# --- Step 2: Logged in, fetch user info ---
-user_info = st.session_state["user_info"]
-email = user_info.get("email", "").lower()
-name = user_info.get("name", email)
-
-st.success(f"✅ Logged in as {name} ({email})")
-
-if email not in TEAM_SHEETS:
-    st.error("🚫 You are not authorized to access this system.")
-    st.stop()
-
-# --- Map Gmail to Sheet ---
-selected_sheet = TEAM_SHEETS[email]
-st.info(f"📊 You only have access to sheet: **{selected_sheet}**")
+# --- Step 2: The rest of your app (sheet, form, view) ---
+# This part will only run after the user logs in through the OAuth link
 
 # --- Connect to Google Sheets ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
+# --- Example: Map Gmail to Sheet (replace with actual email after login) ---
+email = "replace_with_logged_in_email@domain.com"  # Placeholder
+selected_sheet = TEAM_SHEETS.get(email, None)
+if not selected_sheet:
+    st.error("🚫 You are not authorized to access this system.")
+    st.stop()
+
 # --- Work Titles based on role ---
 WORK_TITLES = WORK_TITLES_SOFTWARE if selected_sheet in ["Daniel", "Ron"] else WORK_TITLES_TECHNICAL
 
-# --- Read existing data ---
+# --- Try to read existing data ---
 try:
     existing = conn.read(
         worksheet=selected_sheet,
@@ -123,7 +92,6 @@ try:
         header=0,
         ttl=5
     )
-    # Ensure SQ is numeric
     existing["SQ"] = pd.to_numeric(existing.get("SQ", pd.Series(dtype=int)), errors='coerce').fillna(0).astype(int)
 except Exception:
     existing = pd.DataFrame(columns=["SQ","Date","Work Title","Sales Name","Work Status","Comments","Cancelled Event"])
